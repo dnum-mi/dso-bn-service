@@ -1,0 +1,155 @@
+minio:
+  enabled: true
+  ingress:
+    enabled: true
+    hostname: minio-st.dso.numerique-interieur.com
+  provisioning:
+    podSecurityContext:
+      enabled: false
+    containerSecurityContext:
+      enabled: false
+  volumePermissions:
+    containerSecurityContext:
+      runAsUser: "auto"
+  containerSecurityContext:
+    enabled: false
+  podSecurityContext:
+    enabled: false
+  resources:
+    requests:
+      cpu: 512m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+smtp:
+  # Active ou non l'installation du serveur SMTP
+  enabled: true
+  # Référence vers l'image mailhog sur docker.io
+  image:
+    repository: docker.io/mailhog/mailhog
+    tag: "v1.0.1"
+    pullPolicy: IfNotPresent
+
+  nameOverride: ""
+  fullnameOverride: ""
+
+  containerPort:
+    http:
+      name: http
+      port: 8025
+    smtp:
+      name: tcp-smtp
+      port: 1025
+
+  service:
+    annotations: {}
+    # Named target ports are not supported by GCE health checks, so when deploying on GKE
+    # and exposing it via GCE ingress, the health checks fail and the load balancer returns a 502.
+    namedTargetPort: true
+    port:
+      http: 8025
+      smtp: 1025
+
+  ingress:
+    enabled: true
+    # ingressClassName: nginx
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    labels: {}
+#    hostOverride: mailhog.example.com
+
+  auth:
+    enabled: true
+    existingSecret: ""
+    fileName: auth.txt
+    fileContents: "Ym9iOiQyYSQwNCRRN1VwdmQvWUlwck5DcExsUHpFQ2VlRnZrVlI1RVhKbG1uZjZ4S050ZHlXSnJoeW1hNUhlaQ==" # format user:password (où password est bcrypted) le tout en base64
+
+  # JSON file defining outgoing SMTP servers
+  outgoingSMTP:
+    enabled: false
+    existingSecret: ""
+    fileName: outgoing-smtp.json
+    fileContents: {}
+      # See https://github.com/mailhog/MailHog/blob/master/docs/CONFIG.md#outgoing-smtp-configuration
+      # Only name, host and port are required.
+      #
+      # server_name1:
+      #   name: "server_name1"
+      #   host: "mail.example.com"
+      #   port: "25"    # NOTE: go requires this port number to be a string... otherwise the container won't start
+      #   email: ""
+      #   username: ""
+      #  password: ""
+      #  mechanism: "PLAIN|CRAM-MD5"
+      # server_name2:
+      #   name: "server_name2"
+      #   host: "mail2.example.com"
+      #   port: "587"   # NOTE: go requires this port number to be a string... otherwise the container won't start
+
+  podReplicas: 1
+
+  podAnnotations: {}
+
+  podLabels:
+    app: bouchon-smtp
+    env: ovh
+    tier: bouchon
+    criticality: low
+    component: smtp
+
+  extraEnv: []
+
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes
+  livenessProbe:
+    initialDelaySeconds: 10
+    timeoutSeconds: 1
+
+  resources: 
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+passage2:
+  enabled: true
+  reverseproxy:
+    image: jaubertaot/rpa:passage2
+    service:
+      name: rpa-svc
+      port: 8080
+    hostname: monprojet-rpa.dev.numerique-interieur.com
+    proxy:
+      headers: |-
+        RequestHeader set Mellon-NameID %{MELLON_NAME_ID}e
+        Header set Mellon-NameID %{MELLON_NAME_ID}e
+
+        RequestHeader set Mellon-Groups %{MELLON_groups}e
+        Header set Mellon-Groups %{MELLON_groups}e
+
+        RequestHeader set Mellon-Role %{MELLON_Role}e
+        Header set Mellon-Role %{MELLON_Role}e
+
+      rules: |-
+        # App demo
+        ProxyPassMatch    "^/(.*)" "http://whoami-svc:8080/$1"
+        ProxyPassReverse  "^/(.*)" "http://whoami-svc:8080/$1"
+        #Example
+        ProxyPass /my-service2 "http://whoami3-svc:8080"
+        ProxyPassReverse /my-service2 "http://whoami3-svc:8080"
+
+  mockpassage2:
+    service: 
+      name: saml-keycloak-svc
+      port: 8080
+    hostname: monprojet-passage2.dev.numerique-interieur.com
+    adminLogin: admin
+    adminPassword: OZJFejfrejijIZJijfeij
+  demoApp:
+    enabled: false

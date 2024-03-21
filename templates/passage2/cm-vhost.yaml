@@ -1,0 +1,57 @@
+{{- if .Values.passage2.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vhost-passage
+data:
+  vhost-passage.conf: |
+    # MellonDiagnosticEnable On
+    # MellonDiagnosticFile /opt/bitnami/apache2/logs/mellon_diagnostics
+    <VirtualHost *:8080>
+
+        ServerName https://{{ .Values.passage2.reverseproxy.hostname }}
+        ServerAlias *
+        UseCanonicalName Off
+        #Niveau de verbosite
+        LogLevel info    
+
+        <Files *.sh>
+            SetHandler cgi-script
+        </Files>
+
+        <IfModule mod_dir.c>
+            DirectoryIndex index.pl index.html
+        </IfModule>
+
+        <IfModule mod_rewrite.c>
+            RewriteEngine on
+        </IfModule>
+
+        {{ .Values.passage2.reverseproxy.proxy.rules | indent 8}}
+
+        <Location />
+          Require valid-user
+          AuthType "Mellon"
+          MellonEnable "auth"
+          MellonSetEnv "e-mail" "mail"
+          MellonMergeEnvVars On
+          MellonMergeEnvVars On ","
+          MellonEnvVarsSetCount On
+          MellonSessionDump On
+          MellonSamlResponseDump On
+          MellonEndpointPath "/mellon"
+          MellonDefaultLoginPath "/"
+          MellonSamlResponseDump On
+          MellonSessionDump On
+          MellonRedirectDomains [self]
+          MellonSPMetadataFile /saml/papassage/sp-metadata.xml
+          MellonSPPrivateKeyFile /scripts/key.pem
+          MellonSPCertFile /scripts/cert.pem
+          MellonIdpMetadataFile /saml/papassage/idp-metadata.xml
+          MellonIdPPublicKeyFile /scripts/cert.pem
+
+          {{ .Values.passage2.reverseproxy.proxy.headers | indent 8}}
+
+        </Location>
+    </VirtualHost>
+{{- end -}}
